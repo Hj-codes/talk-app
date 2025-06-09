@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Chat App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+        
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        
+        h1 {
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+        
+        .status {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-size: 1.1em;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .status.connected {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        
+        .status.waiting {
+            background: rgba(255, 193, 7, 0.3);
+        }
+        
+        .status.matched {
+            background: rgba(76, 175, 80, 0.3);
+        }
+        
+        .status.error {
+            background: rgba(244, 67, 54, 0.3);
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+            min-width: 120px;
+        }
+        
+        button:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .user-info {
+            font-size: 0.9em;
+            margin: 15px 0;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 10px;
+            border-radius: 8px;
+            word-break: break-all;
+        }
+        
+        .logs {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            text-align: left;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8em;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .log-entry {
+            margin: 5px 0;
+            padding: 2px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .timestamp {
+            color: #aaa;
+            font-size: 0.9em;
+        }
+        
+        audio {
+            width: 100%;
+            margin: 10px 0;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Voice Chat</h1>
+        
+        <div id="status" class="status">
+            Click "Join" to start connecting
+        </div>
+        
+        <div id="userInfo" class="user-info" style="display: none;">
+            <div>User ID: <span id="userId"></span></div>
+            <div>Partner ID: <span id="partnerId"></span></div>
+        </div>
+        
+        <button id="joinBtn" onclick="connect()">Join Chat</button>
+        <button id="findMatchBtn" onclick="findMatch()" disabled>Find Match</button>
+        <button id="leaveBtn" onclick="disconnect()" disabled>Leave</button>
+        
+        <audio id="remoteAudio" autoplay controls style="display: none;"></audio>
+        
+        <div class="logs" id="logs"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let localStream = null;
+        let peerConnection = null;
+        let userId = null;
+        let partnerId = null;
+        let isConnected = false;
+        let isMatched = false;
+
+        // WebRTC configuration
+        const config = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
+        };
+
+        // UI elements
+        const statusDiv = document.getElementById('status');
+        const userInfoDiv = document.getElementById('userInfo');
+        const userIdSpan = document.getElementById('userId');
+        const partnerIdSpan = document.getElementById('partnerId');
+        const joinBtn = document.getElementById('joinBtn');
+        const findMatchBtn = document.getElementById('findMatchBtn');
+        const leaveBtn = document.getElementById('leaveBtn');
+        const remoteAudio = document.getElementById('remoteAudio');
+        const logsDiv = document.getElementById('logs');
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span class="timestamp">[${timestamp}]</span> ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function updateStatus(message, className = '') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${className}`;
+            log(`Status: ${message}`);
+        }
+
+        function updateUI() {
+            joinBtn.disabled = isConnected;
+            findMatchBtn.disabled = !isConnected || isMatched;
+            leaveBtn.disabled = !isConnected;
+            
+            if (userId) {
+                userInfoDiv.style.display = 'block';
+                userIdSpan.textContent = userId.substring(0, 8) + '...';
+                partnerIdSpan.textContent = partnerId ? partnerId.substring(0, 8) + '...' : 'None';
+            } else {
+                userInfoDiv.style.display = 'none';
+            }
+        }
+
+        async function connect() {
+            try {
+                log('Requesting microphone access...');
+                updateStatus('Requesting microphone access...', 'waiting');
+                
+                // Get user media first
+                localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: true, 
+                    video: false 
+                });
+                log('Microphone access granted');
+
+                // Connect to WebSocket
+                const wsUrl = `ws://localhost:8080/ws`;
+                log(`Connecting to ${wsUrl}`);
+                updateStatus('Connecting to server...', 'waiting');
+                
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    isConnected = true;
+                    log('WebSocket connected');
+                    updateStatus('Connected! Click "Find Match" to find someone to talk to.', 'connected');
+                    updateUI();
+                };
+                
+                ws.onmessage = handleMessage;
+                
+                ws.onclose = (event) => {
+                    isConnected = false;
+                    isMatched = false;
+                    log(`WebSocket closed: ${event.code} - ${event.reason}`);
+                    updateStatus('Disconnected from server', 'error');
+                    cleanup();
+                    updateUI();
+                };
+                
+                ws.onerror = (error) => {
+                    log(`WebSocket error: ${error}`, 'error');
+                    updateStatus('Connection error - check if server is running', 'error');
+                    isConnected = false;
+                    updateUI();
+                };
+                
+            } catch (error) {
+                log(`Error accessing microphone: ${error.message}`, 'error');
+                updateStatus('Microphone access denied', 'error');
+            }
+        }
+
+        async function handleMessage(event) {
+            try {
+                const message = JSON.parse(event.data);
+                log(`Received: ${message.type}`, 'info');
+                
+                switch (message.type) {
+                    case 'session':
+                        userId = message.payload.user_id;
+                        log(`Session established. User ID: ${userId}`);
+                        updateUI();
+                        break;
+                        
+                    case 'waiting':
+                        updateStatus('🔍 Looking for someone to chat with...', 'waiting');
+                        break;
+                        
+                    case 'match_found':
+                        try {
+                            partnerId = message.payload.partner_id;
+                            isMatched = true;
+                            log(`Matched with partner: ${partnerId}`);
+                            updateStatus('👥 Match found! Setting up voice connection...', 'matched');
+                            updateUI();
+                            
+                            // Initialize WebRTC based on role
+                            if (message.payload.role === 'caller') {
+                                log('Acting as caller - creating offer');
+                                await createOffer();
+                            } else {
+                                log('Acting as callee - waiting for offer');
+                            }
+                        } catch (error) {
+                            log(`Error during match setup: ${error.message}`, 'error');
+                            updateStatus('Failed to set up connection', 'error');
+                            // Reset match state on error
+                            isMatched = false;
+                            partnerId = null;
+                            cleanup();
+                            updateUI();
+                        }
+                        break;
+                        
+                    case 'offer':
+                        try {
+                            log('Received WebRTC offer');
+                            await handleOffer(message.payload);
+                        } catch (error) {
+                            log(`Error handling offer: ${error.message}`, 'error');
+                            updateStatus('Failed to handle call offer', 'error');
+                        }
+                        break;
+                        
+                    case 'answer':
+                        try {
+                            log('Received WebRTC answer');
+                            await handleAnswer(message.payload);
+                        } catch (error) {
+                            log(`Error handling answer: ${error.message}`, 'error');
+                            updateStatus('Failed to handle call answer', 'error');
+                        }
+                        break;
+                        
+                    case 'ice_candidate':
+                        try {
+                            log('Received ICE candidate');
+                            await handleIceCandidate(message.payload);
+                        } catch (error) {
+                            log(`Error handling ICE candidate: ${error.message}`, 'error');
+                            // ICE candidate errors are usually not fatal, just log them
+                        }
+                        break;
+                        
+                    case 'partner_disconnected':
+                        log('Partner disconnected');
+                        updateStatus('Partner left the conversation', 'error');
+                        isMatched = false;
+                        partnerId = null;
+                        cleanup();
+                        updateUI();
+                        break;
+                        
+                    case 'error':
+                        // Handle different error payload types
+                        let errorMessage;
+                        if (typeof message.payload === 'string') {
+                            errorMessage = message.payload;
+                        } else if (typeof message.payload === 'object' && message.payload.message) {
+                            errorMessage = message.payload.message;
+                        } else if (typeof message.payload === 'object') {
+                            errorMessage = JSON.stringify(message.payload);
+                        } else {
+                            errorMessage = 'Unknown error occurred';
+                        }
+                        log(`Server error: ${errorMessage}`, 'error');
+                        updateStatus(`Error: ${errorMessage}`, 'error');
+                        break;
+                        
+                    case 'ping':
+                        // Respond to ping
+                        sendMessage('pong', {});
+                        break;
+                        
+                    default:
+                        log(`Unknown message type: ${message.type}`, 'warning');
+                }
+            } catch (error) {
+                log(`Error handling message: ${error.message}`, 'error');
+                updateStatus('Message handling error', 'error');
+            }
+        }
+
+        function sendMessage(type, payload) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const message = {
+                    type: type,
+                    payload: payload,
+                    timestamp: new Date().toISOString()
+                };
+                ws.send(JSON.stringify(message));
+                log(`Sent: ${type}`);
+            } else {
+                log('Cannot send message - WebSocket not connected', 'error');
+            }
+        }
+
+        function findMatch() {
+            if (!isConnected) {
+                log('Not connected to server', 'error');
+                return;
+            }
+            
+            if (isMatched) {
+                log('Already matched with a partner', 'warning');
+                return;
+            }
+            
+            log('Looking for a match...');
+            updateStatus('🔍 Looking for someone to chat with...', 'waiting');
+            sendMessage('find_match', {});
+        }
+
+        async function createPeerConnection() {
+            if (peerConnection) {
+                peerConnection.close();
+            }
+            
+            peerConnection = new RTCPeerConnection(config);
+            log('Created peer connection');
+            
+            // Add local stream
+            if (localStream) {
+                localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, localStream);
+                    log(`Added local track: ${track.kind}`);
+                });
+            }
+            
+            // Handle remote stream
+            peerConnection.ontrack = (event) => {
+                log('Received remote track');
+                remoteAudio.srcObject = event.streams[0];
+                remoteAudio.style.display = 'block';
+                updateStatus('🔊 Voice call connected!', 'connected');
+            };
+            
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    log('Sending ICE candidate');
+                    sendMessage('ice_candidate', {
+                        candidate: event.candidate.candidate,
+                        sdpMLineIndex: event.candidate.sdpMLineIndex,
+                        sdpMid: event.candidate.sdpMid
+                    });
+                }
+            };
+            
+            peerConnection.onconnectionstatechange = () => {
+                log(`Connection state: ${peerConnection.connectionState}`);
+                switch (peerConnection.connectionState) {
+                    case 'connected':
+                        updateStatus('🔊 Voice call connected!', 'connected');
+                        break;
+                    case 'connecting':
+                        updateStatus('Establishing voice connection...', 'waiting');
+                        break;
+                    case 'disconnected':
+                        updateStatus('Voice connection lost', 'error');
+                        break;
+                    case 'failed':
+                        updateStatus('Voice connection failed', 'error');
+                        log('WebRTC connection failed - may need TURN servers', 'error');
+                        break;
+                    case 'closed':
+                        updateStatus('Voice connection closed', 'error');
+                        break;
+                }
+            };
+        }
+
+        async function createOffer() {
+            await createPeerConnection();
+            
+            try {
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                log('Created and set local offer');
+                sendMessage('offer', {
+                    type: offer.type,
+                    sdp: offer.sdp
+                });
+            } catch (error) {
+                log(`Error creating offer: ${error.message}`, 'error');
+            }
+        }
+
+        async function handleOffer(payload) {
+            await createPeerConnection();
+            
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+                log('Set remote offer');
+                
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                log('Created and set local answer');
+                sendMessage('answer', {
+                    type: answer.type,
+                    sdp: answer.sdp
+                });
+            } catch (error) {
+                log(`Error handling offer: ${error.message}`, 'error');
+            }
+        }
+
+        async function handleAnswer(payload) {
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(payload));
+                log('Set remote answer');
+            } catch (error) {
+                log(`Error handling answer: ${error.message}`, 'error');
+            }
+        }
+
+        async function handleIceCandidate(payload) {
+            try {
+                if (peerConnection) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(payload));
+                    log('Added ICE candidate');
+                }
+            } catch (error) {
+                log(`Error adding ICE candidate: ${error.message}`, 'error');
+            }
+        }
+
+        function cleanup() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+                log('Closed peer connection');
+            }
+            
+            if (remoteAudio.srcObject) {
+                remoteAudio.srcObject = null;
+                remoteAudio.style.display = 'none';
+            }
+            
+            partnerId = null;
+            isMatched = false;
+        }
+
+        function disconnect() {
+            if (ws) {
+                sendMessage('disconnect', {});
+                ws.close();
+            }
+            
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+                log('Stopped local stream');
+            }
+            
+            cleanup();
+            
+            isConnected = false;
+            userId = null;
+            updateStatus('Disconnected', 'error');
+            updateUI();
+            log('Disconnected from service');
+        }
+
+        // Initialize UI
+        updateUI();
+    </script>
+</body>
+</html> 

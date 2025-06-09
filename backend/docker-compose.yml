@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  voice-chat-backend:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - JWT_SECRET=development-secret-key-change-in-production
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:19006
+      - MAX_CONNECTIONS=1000
+      - HEARTBEAT_INTERVAL=30s
+      - CLEANUP_INTERVAL=30s
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add Redis for scaling (uncomment when needed)
+  # redis:
+  #   image: redis:7-alpine
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   restart: unless-stopped
+
+# volumes:
+#   redis_data: 
