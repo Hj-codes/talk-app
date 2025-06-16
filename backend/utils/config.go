@@ -121,7 +121,8 @@ func getAllowedOrigins() []string {
 		if env == models.EnvironmentProduction {
 			log.Fatal("ALLOWED_ORIGINS environment variable is required in production")
 		}
-		return models.DefaultAllowedOrigins
+		// return models.DefaultAllowedOrigins
+		return []string{}
 	}
 
 	// Parse comma-separated origins
