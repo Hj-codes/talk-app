@@ -1,9 +1,33 @@
+// Configuration for different environments
+const getEnvironmentConfig = () => {
+  // For development, you can use your local server or ngrok
+  const DEVELOPMENT_BASE_URL = 'http://localhost:8080';
+  const DEVELOPMENT_WS_URL = 'ws://localhost:8080/ws';
+  
+  // For production, use your Render deployment URL
+  // Replace 'your-app-name' with your actual Render service name
+  const PRODUCTION_BASE_URL = 'https://talk-app-xfbw.onrender.com';
+  const PRODUCTION_WS_URL = 'wss://talk-app-xfbw.onrender.com/ws';
+  
+  if (__DEV__) {
+    return {
+      BASE_URL: DEVELOPMENT_BASE_URL,
+      WS_URL: DEVELOPMENT_WS_URL,
+    };
+  }
+  
+  return {
+    BASE_URL: PRODUCTION_BASE_URL,
+    WS_URL: PRODUCTION_WS_URL,
+  };
+};
+
+const environmentConfig = getEnvironmentConfig();
+
 export const API_CONFIG = {
     // Backend server configuration
-    // BASE_URL: __DEV__ ? 'http://10.0.2.2:8080' : 'http://localhost:8080', // Android emulator uses 10.0.2.2
-    // WS_URL: __DEV__ ? 'ws://10.0.2.2:8080/ws' : 'ws://localhost:8080/ws',
-    BASE_URL: __DEV__ ? 'https://2dd3-2405-201-5c00-a0c4-d96b-2a58-ae83-23e6.ngrok-free.app' : 'https://2dd3-2405-201-5c00-a0c4-d96b-2a58-ae83-23e6.ngrok-free.app',
-    WS_URL: __DEV__ ? 'wss://2dd3-2405-201-5c00-a0c4-d96b-2a58-ae83-23e6.ngrok-free.app/ws' : 'wss://2dd3-2405-201-5c00-a0c4-d96b-2a58-ae83-23e6.ngrok-free.app/ws',
+    BASE_URL: environmentConfig.BASE_URL,
+    WS_URL: environmentConfig.WS_URL,
 
     // API endpoints
     ENDPOINTS: {
@@ -13,7 +37,7 @@ export const API_CONFIG = {
       WEBSOCKET: '/ws',
     },
     
-    // WebRTC configuration matching the HTML demo
+    // WebRTC configuration - will be fetched from backend
     WEBRTC_CONFIG: {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -25,6 +49,6 @@ export const API_CONFIG = {
     CONNECTION_TIMEOUT: 10000,
     RECONNECT_DELAY: 3000,
     MAX_RECONNECT_ATTEMPTS: 5,
-  };
+};
   
-  export default API_CONFIG; 
+export default API_CONFIG; 

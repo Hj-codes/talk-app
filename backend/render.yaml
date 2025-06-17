@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: voice-chat-backend
+    env: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeploy: true
+    region: Singapore
+    
+    # Environment variables for production
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: JWT_SECRET
+        generateValue: true  # Render will generate a secure secret
+      - key: ALLOWED_ORIGINS
+        value: https://your-frontend-domain.com,http://localhost:19006,exp://localhost:19000
+      - key: MAX_CONNECTIONS
+        value: 1000
+      - key: HTTP_RATE_LIMIT_PER_MINUTE
+        value: 60
+      - key: WS_RATE_LIMIT_PER_MINUTE
+        value: 100
+      - key: MAX_WS_CONN_PER_IP
+        value: 10
+      - key: HEARTBEAT_INTERVAL
+        value: 30s
+      - key: CLEANUP_INTERVAL
+        value: 30s
+      - key: READ_TIMEOUT
+        value: 15s
+      - key: WRITE_TIMEOUT
+        value: 15s
+      - key: IDLE_TIMEOUT
+        value: 60s
+      - key: CONNECTION_TIMEOUT
+        value: 60s
+      - key: WEBSOCKET_TIMEOUT
+        value: 45s
+      
+    # Health check configuration
+    healthCheckPath: /health
+    
+buildFilter:
+  paths:
+    - backend/**
+    - Dockerfile 

@@ -1,0 +1,58 @@
+# Development files
+.git
+.gitignore
+README.md
+TESTING.md
+WEBRTC_SETUP.md
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+
+# Build artifacts
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test files
+*_test.go
+tests/
+coverage.out
+coverage.html
+
+# Documentation
+docs/
+*.md
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+logs/*.log
+*.log
+
+# Docker files
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile.dev
+
+# Scripts that aren't needed in production
+scripts/
+Makefile 
