@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { Card, Text, Chip } from 'react-native-paper';
+import { Card, Text, Chip, Divider } from 'react-native-paper';
 import { theme } from '../styles/theme';
 
 interface UserInfoCardProps {
@@ -28,25 +28,39 @@ const UserInfoCard: React.FC<UserInfoCardProps> = ({
     return 'Connected to server';
   };
 
+  const getStatusIcon = () => {
+    if (isVoiceConnected) return '🔊';
+    if (isMatched) return '⚙️';
+    return '📡';
+  };
+
   return (
-    <Card style={styles.card}>
-      <Card.Content>
-        <View style={styles.row}>
-          <Text style={styles.label}>User ID:</Text>
-          <Text style={styles.value}>{userId.substring(0, 8)}...</Text>
-        </View>
+    <Card style={styles.card} mode="elevated">
+      <Card.Content style={styles.content}>
+        <Text style={styles.cardTitle}>Session Information</Text>
         
-        <View style={styles.row}>
-          <Text style={styles.label}>Partner:</Text>
-          <Text style={styles.value}>
-            {partnerId ? `${partnerId.substring(0, 8)}...` : 'None'}
-          </Text>
+        <View style={styles.infoSection}>
+          <View style={styles.row}>
+            <Text style={styles.label}>Your ID</Text>
+            <Text style={styles.value}>{userId.substring(0, 8)}...</Text>
+          </View>
+          
+          <Divider style={styles.divider} />
+          
+          <View style={styles.row}>
+            <Text style={styles.label}>Partner</Text>
+            <Text style={styles.value}>
+              {partnerId ? `${partnerId.substring(0, 8)}...` : 'Waiting...'}
+            </Text>
+          </View>
         </View>
 
-        <View style={styles.statusRow}>
+        <View style={styles.statusSection}>
           <Chip
-            style={[styles.statusChip, { backgroundColor: getStatusChipColor() + '40' }]}
-            textStyle={[styles.statusText, { color: theme.colors.onSurface }]}
+            style={[styles.statusChip, { backgroundColor: getStatusChipColor() + '20' }]}
+            textStyle={[styles.statusText, { color: getStatusChipColor() }]}
+            icon={() => <Text style={styles.statusIcon}>{getStatusIcon()}</Text>}
+            mode="flat"
           >
             {getStatusText()}
           </Chip>
@@ -58,37 +72,60 @@ const UserInfoCard: React.FC<UserInfoCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.xxxl,
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
-    ...theme.shadows.small,
+  },
+  content: {
+    paddingVertical: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
+  },
+  cardTitle: {
+    ...theme.typography.h4,
+    color: theme.colors.onSurface,
+    marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+  },
+  infoSection: {
+    marginBottom: theme.spacing.xl,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
   },
-  statusRow: {
-    alignItems: 'center',
-    marginTop: theme.spacing.sm,
+  divider: {
+    backgroundColor: theme.colors.divider,
+    height: 1,
   },
   label: {
     ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
     fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   value: {
-    ...theme.typography.bodySmall,
+    ...theme.typography.body,
     color: theme.colors.onSurface,
     fontFamily: 'monospace',
+    fontWeight: '600',
+  },
+  statusSection: {
+    alignItems: 'center',
   },
   statusChip: {
     borderRadius: theme.borderRadius.round,
+    paddingHorizontal: theme.spacing.md,
   },
   statusText: {
-    ...theme.typography.caption,
-    fontWeight: '500',
+    ...theme.typography.bodySmall,
+    fontWeight: '600',
+    marginLeft: theme.spacing.xs,
+  },
+  statusIcon: {
+    fontSize: 14,
   },
 });
 

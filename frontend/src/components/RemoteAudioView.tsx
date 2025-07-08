@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Card, Text, IconButton } from 'react-native-paper';
+import { View, StyleSheet, Animated } from 'react-native';
+import { Card, Text, IconButton, Surface } from 'react-native-paper';
 import { RTCView } from 'react-native-webrtc';
 import { theme } from '../styles/theme';
 
@@ -10,6 +10,32 @@ interface RemoteAudioViewProps {
 
 const RemoteAudioView: React.FC<RemoteAudioViewProps> = ({ stream }) => {
   const [isPlaying, setIsPlaying] = React.useState(true);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Create a subtle pulsing animation for the audio indicator when playing
+    if (isPlaying) {
+      const pulse = Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.2,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]);
+
+      const loop = Animated.loop(pulse);
+      loop.start();
+
+      return () => loop.stop();
+    } else {
+      pulseAnim.setValue(1);
+    }
+  }, [isPlaying, pulseAnim]);
 
   const togglePlayback = () => {
     if (stream) {
@@ -20,29 +46,46 @@ const RemoteAudioView: React.FC<RemoteAudioViewProps> = ({ stream }) => {
     }
   };
 
-  // Note: For audio-only streams, RTCView is not needed and won't display anything
-  // The audio will automatically play through the device speakers
-  // This component provides UI controls for the audio stream
-
   return (
-    <Card style={styles.card}>
+    <Card style={styles.card} mode="elevated">
       <Card.Content style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>🔊 Partner Audio</Text>
-          <IconButton
-            icon={isPlaying ? 'volume-high' : 'volume-off'}
-            iconColor={theme.colors.onSurface}
-            size={24}
-            onPress={togglePlayback}
-            style={styles.toggleButton}
-          />
+          <View style={styles.titleSection}>
+            <Text style={styles.title}>Partner Audio</Text>
+            <Text style={styles.subtitle}>
+              {isPlaying ? 'Audio stream active' : 'Audio stream muted'}
+            </Text>
+          </View>
+          
+          <Surface style={styles.controlSurface} elevation={1}>
+            <IconButton
+              icon={isPlaying ? 'volume-high' : 'volume-off'}
+              iconColor={isPlaying ? theme.colors.connected : theme.colors.error}
+              size={28}
+              onPress={togglePlayback}
+              style={styles.toggleButton}
+            />
+          </Surface>
         </View>
         
-        <View style={styles.audioIndicator}>
-          <View style={[styles.indicator, { backgroundColor: isPlaying ? theme.colors.connected : theme.colors.error }]} />
-          <Text style={styles.indicatorText}>
-            {isPlaying ? 'Audio Playing' : 'Audio Muted'}
-          </Text>
+        <View style={styles.audioIndicatorSection}>
+          <Animated.View 
+            style={[
+              styles.audioIndicator,
+              {
+                transform: [{ scale: pulseAnim }],
+                backgroundColor: isPlaying ? theme.colors.connected : theme.colors.error,
+              }
+            ]} 
+          />
+          <View style={styles.indicatorTextContainer}>
+            <Text style={styles.indicatorMainText}>
+              {isPlaying ? 'Connected' : 'Muted'}
+            </Text>
+            <Text style={styles.indicatorSubText}>
+              {isPlaying ? 'Receiving audio from partner' : 'Audio playback disabled'}
+            </Text>
+          </View>
         </View>
 
         {/* Hidden RTCView for audio stream - required by react-native-webrtc */}
@@ -61,40 +104,62 @@ const RemoteAudioView: React.FC<RemoteAudioViewProps> = ({ stream }) => {
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: theme.spacing.lg,
+    marginBottom: theme.spacing.xxxl,
     backgroundColor: theme.colors.surface,
     borderRadius: theme.borderRadius.lg,
-    ...theme.shadows.small,
   },
   content: {
-    alignItems: 'center',
+    paddingVertical: theme.spacing.xl,
+    paddingHorizontal: theme.spacing.lg,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xl,
+  },
+  titleSection: {
+    flex: 1,
   },
   title: {
-    ...theme.typography.h3,
+    ...theme.typography.h4,
     color: theme.colors.onSurface,
+    marginBottom: theme.spacing.xs,
   },
-  toggleButton: {
+  subtitle: {
+    ...theme.typography.bodySmall,
+    color: theme.colors.onSurfaceVariant,
+  },
+  controlSurface: {
+    borderRadius: theme.borderRadius.round,
     backgroundColor: theme.colors.surfaceVariant,
   },
-  audioIndicator: {
+  toggleButton: {
+    margin: 0,
+  },
+  audioIndicatorSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: theme.spacing.lg,
   },
-  indicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: theme.spacing.sm,
+  audioIndicator: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    marginRight: theme.spacing.lg,
   },
-  indicatorText: {
+  indicatorTextContainer: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  indicatorMainText: {
+    ...theme.typography.body,
+    color: theme.colors.onSurface,
+    fontWeight: '600',
+    marginBottom: theme.spacing.xs,
+  },
+  indicatorSubText: {
     ...theme.typography.bodySmall,
     color: theme.colors.onSurfaceVariant,
   },

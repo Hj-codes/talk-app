@@ -1,8 +1,8 @@
 // Configuration for different environments
 const getEnvironmentConfig = () => {
   // For development, you can use your local server or ngrok
-  const DEVELOPMENT_BASE_URL = 'http://localhost:8080';
-  const DEVELOPMENT_WS_URL = 'ws://localhost:8080/ws';
+  const DEVELOPMENT_BASE_URL = 'https://talk-app-xfbw.onrender.com';
+  const DEVELOPMENT_WS_URL = 'wss://talk-app-xfbw.onrender.com/ws';
   
   // For production, use your Render deployment URL
   // Replace 'your-app-name' with your actual Render service name
